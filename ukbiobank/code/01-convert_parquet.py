@@ -1,0 +1,84 @@
+# Convert to parquet for faster loading as we work with the data
+import pandas as pd
+
+### prescriptions
+med = pd.read_csv('../raw_data/data_gp_scripts.tsv', sep='\t') 
+
+# need to know quantity for enrollment; remove prescriptions with no quantity value (~7.8M out of 57M total)
+med = med[~med.quantity.isna()]
+
+# remove prescriptions before 1990 (~34k)
+med.issue_date = pd.to_datetime(med.issue_date)
+med = med[med.issue_date.dt.year>=1990]
+
+# create subsets based on whether drug name, read2 or BNF are NaN
+missing_drug = med[med.drug_name.isna()]
+remove = missing_drug[(missing_drug.bnf_code.isna()) & (missing_drug.read_2.isna())]
+med = med.drop(labels=remove.index) # 5 prescriptions removed
+med = med.reset_index(drop=True)
+
+med.drug_name = med.drug_name.str.upper()
+med.to_parquet('../tidy_data/med.parquet')
+
+# Read2-to-BNF table
+read_v2_drugs_bnf = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_drugs_bnf')
+read_v2_drugs_bnf.to_parquet('../tidy_data/read_v2_drugs_bnf.parquet')
+
+# BNF lookup
+bnf_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='bnf_lkp')
+bnf_lkp.BNF_Presentation_Code = bnf_lkp.BNF_Presentation_Code.astype(str)
+bnf_lkp.to_parquet('../tidy_data/bnf_lkp.parquet')
+
+# Read2 lookup
+read_v2_drugs_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_drugs_lkp')
+read_v2_drugs_lkp.to_parquet('../tidy_data/read_v2_drugs_lkp.parquet')
+
+### diagnoses
+gp_clin = pd.read_csv('../raw_data/data_gp_clinical.tsv', sep='\t')
+# remove diagnoses before 1990 (~1.5M of ~124M total)
+gp_clin.event_dt = pd.to_datetime(gp_clin.event_dt)
+gp_clin = gp_clin[gp_clin.event_dt.dt.year>=1990]
+gp_clin = gp_clin.reset_index(drop=True)
+gp_clin.to_parquet('../tidy_data/data_gp_clinical.parquet')
+
+### hospital admissions and diagnoses
+hesin = pd.read_csv('../raw_data/data_hesin.tsv', sep='\t')
+# remove diagnoses before 1990 (~57k of ~3.9M total)
+hesin.epistart = pd.to_datetime(hesin.epistart)
+hesin = hesin[hesin.epistart.dt.year>=1990]
+hesin = hesin.reset_index(drop=True)
+hesin.to_parquet('../tidy_data/data_hesin.parquet')
+
+hesin_diag = pd.read_csv('../raw_data/data_hesin_diag.tsv', sep='\t')
+# create column as tuple of patient ID and instance index
+hesin['eid_ins_index'] = list(zip(hesin.eid, hesin.ins_index))
+hesin_diag['eid_ins_index'] = list(zip(hesin_diag.eid, hesin_diag.ins_index))
+# set overlap of tuples
+overlap_eid_ins_index = set(hesin.eid_ins_index).intersection(set(hesin_diag.eid_ins_index))
+# remove diagnoses with no corresponding tuple in episode dataframe (cannot know dates of diagnoses otherwise)
+# removes ~80k diagnoses out of ~15.2M total
+hesin_diag_overlap = hesin_diag[hesin_diag.eid_ins_index.isin(overlap_eid_ins_index)]
+hesin_diag_overlap = hesin_diag_overlap.merge(hesin.loc[:,['eid_ins_index','epistart','epiend','epidur']], how='left', on='eid_ins_index')
+hesin_diag_overlap = hesin_diag_overlap.reset_index(drop=True)
+hesin_diag_overlap = hesin_diag_overlap.drop(columns=['eid_ins_index'])
+hesin_diag_overlap.to_parquet('../tidy_data/data_hesin_diag.parquet')
+
+### read2
+read2_icd9 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_icd9')
+read2_icd9.to_parquet('../tidy_data/readv2_icd9.parquet')
+read2_icd10 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_icd10')
+read2_icd10.to_parquet('../tidy_data/readv2_icd10.parquet')
+
+### icd9 and icd10
+icd9_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='icd9_lkp')
+icd9_lkp.rename(columns={'DESCRIPTION_ICD9':'DESCRIPTION'}, inplace=True)
+icd9_lkp.to_parquet('../tidy_data/icd9_lkp.parquet')
+
+icd10_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='icd10_lkp')
+icd10_lkp = icd10_lkp.iloc[:,:5]
+# add rows for icd10 codes ending in X where the X is removed
+for i,code in enumerate(icd10_lkp.ALT_CODE):
+    if code and code[-1]=='X':
+        icd10_lkp.loc[icd10_lkp.index.max() + 1] = icd10_lkp.loc[i]  # Insert a new row below the first row with the same values
+        icd10_lkp.loc[icd10_lkp.index.max(), 'ALT_CODE'] = code[:-1]
+icd10_lkp.to_parquet('../tidy_data/icd10_lkp.parquet')
