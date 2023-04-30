@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+from datetime import datetime
 
 ### Outpatient diagnoses
 dx = pd.read_parquet('../tidy_data/data_gp_clinical.parquet')
@@ -72,6 +74,7 @@ def merge_descriptions(icd_type, df):
 hesin_diag = pd.read_parquet('../tidy_data/data_hesin_diag.parquet')
 
 # Merge with ICD lookup tables to add code descriptions
+# No need to reset the index here because there are no rows that have both ICD9 and ICD10 codes
 hesin_diag_icd9 = merge_descriptions('icd9', hesin_diag[(~hesin_diag.diag_icd9.isna())])
 hesin_diag_icd10 = merge_descriptions('icd10', hesin_diag[(~hesin_diag.diag_icd10.isna())])
 
@@ -99,6 +102,23 @@ all_dx = pd.concat([icd[['eid','event_dt','icd_code','DESCRIPTION','icd_type']],
             hesin_diag[['eid','event_dt','icd_code','DESCRIPTION','icd_type']]])
 # 15824799 rows, removing 1061508 duplicates
 all_dx = all_dx.drop_duplicates().reset_index(drop=True, inplace=True) 
+
+# create a column for patient age at time of prescription
+patient = pd.read_parquet('../tidy_data/patient.parquet')
+all_dx['AGE_AT_ENCOUNTER'] = np.nan
+unique_eids = list(set(all_dx.eid))
+
+# patient groups
+pt_gp = patient.groupby('eid').groups
+# med patient groups
+dx_pt_gp = all_dx.groupby('eid').groups
+
+# iterate over unique patients and calculate age at encounter by subtracting date of birth from date of prescription
+for i,eid in enumerate(unique_eids):
+    birthday = datetime(patient.iloc[pt_gp[eid]].yob, patient.iloc[pt_gp[eid]].mob, 1)
+    all_dx.AGE_AT_ENCOUNTER[dx_pt_gp[eid]] = (all_dx.event_dt[dx_pt_gp[eid]] - birthday).dt.days
+#convert to years 
+all_dx['AGE_AT_ENCOUNTER'] = all_dx['AGE_AT_ENCOUNTER'] / 365.25
 
 # Save the data
 all_dx.to_parquet('../tidy_data/icd_data_all_dx.parquet')

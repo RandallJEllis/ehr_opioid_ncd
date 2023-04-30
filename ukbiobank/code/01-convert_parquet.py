@@ -1,5 +1,14 @@
 # Convert to parquet for faster loading as we work with the data
 import pandas as pd
+from datetime import datetime
+import numpy as np
+
+### patients
+patient = pd.read_csv('../raw_data/data_participant.tsv', sep='\t')
+# Referring to DNANexus, renaming columns to make sense
+# 34 = year of birth; 52 = month of birth; 31 = sex (0 is female; 1 is male); 42040 = GP clinical event records; 41259 = Records in HES inpatient main dataset
+patient = patient.rename(columns={'34-0.0':'yob', '52-0.0':'mob', '31-0.0':'sex', '42040-0.0':'gp_records', '41259-0.0':'inpatient_records'})
+patient.to_parquet('../tidy_data/patient.parquet')
 
 ### prescriptions
 med = pd.read_csv('../raw_data/data_gp_scripts.tsv', sep='\t') 
@@ -18,6 +27,22 @@ med = med.drop(labels=remove.index) # 5 prescriptions removed
 med = med.reset_index(drop=True)
 
 med.drug_name = med.drug_name.str.upper()
+
+# create a column for patient age at time of prescription
+med['AGE_AT_ENCOUNTER'] = np.nan
+unique_eids = list(set(med.eid))
+
+# patient groups
+pt_gp = patient.groupby('eid').groups
+# med patient groups
+med_pt_gp = med.groupby('eid').groups
+
+# iterate over unique patients and calculate age at encounter by subtracting date of birth from date of prescription
+for i,eid in enumerate(unique_eids):
+    birthday = datetime(patient.iloc[pt_gp[eid]].yob, patient.iloc[pt_gp[eid]].mob, 1)
+    med.AGE_AT_ENCOUNTER[med_pt_gp[eid]] = (med.issue_date[med_pt_gp[eid]] - birthday).dt.days
+#convert to years 
+med['AGE_AT_ENCOUNTER'] = med['AGE_AT_ENCOUNTER'] / 365.25
 med.to_parquet('../tidy_data/med.parquet')
 
 # Read2-to-BNF table
