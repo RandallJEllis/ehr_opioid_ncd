@@ -8,6 +8,7 @@ patient = pd.read_csv('../raw_data/data_participant.tsv', sep='\t')
 # Referring to DNANexus, renaming columns to make sense
 # 34 = year of birth; 52 = month of birth; 31 = sex (0 is female; 1 is male); 42040 = GP clinical event records; 41259 = Records in HES inpatient main dataset
 patient = patient.rename(columns={'34-0.0':'yob', '52-0.0':'mob', '31-0.0':'sex', '42040-0.0':'gp_records', '41259-0.0':'inpatient_records'})
+patient['sex'] = patient['sex'].replace({0: 'Female', 1: 'Male'})
 patient.to_parquet('../tidy_data/patient.parquet')
 
 ### prescriptions
@@ -107,3 +108,8 @@ for i,code in enumerate(icd10_lkp.ALT_CODE):
         icd10_lkp.loc[icd10_lkp.index.max() + 1] = icd10_lkp.loc[i]  # Insert a new row below the first row with the same values
         icd10_lkp.loc[icd10_lkp.index.max(), 'ALT_CODE'] = code[:-1]
 icd10_lkp.to_parquet('../tidy_data/icd10_lkp.parquet')
+
+# Create encounters file based on hospitalization episodes and GP clinical events
+hesin = hesin.rename(columns={'epistart':'event_dt'})
+encounters = pd.concat([gp_clin[['eid', 'event_dt']], hesin[['eid', 'event_dt']]])
+encounters.to_parquet('../tidy_data/encounters.parquet')

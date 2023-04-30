@@ -14,13 +14,13 @@ Helper functions to simplify the VoE scripts
 
 def import_data():
     path = '../../tidy_data/'
-    person = pd.read_parquet(path+'Patient.parquet')
-    encounters = pd.read_parquet(path+'Encounters.parquet')
+    person = pd.read_parquet(path+'patient.parquet')
+    encounters = pd.read_parquet(path+'encounters.parquet')
     
     opi_prescrip = pd.read_parquet(path+'opioid_med.parquet')
     #only keep prescriptions with a certain duration
-    opi_prescrip['med_duration'] = (opi_prescrip.MEDICATION_END_DATE - opi_prescrip.MEDICATION_START_DATE).dt.days
-    opi_prescrip = opi_prescrip[opi_prescrip.med_duration>=10]
+    # opi_prescrip['med_duration'] = (opi_prescrip.MEDICATION_END_DATE - opi_prescrip.MEDICATION_START_DATE).dt.days
+    # opi_prescrip = opi_prescrip[opi_prescrip.med_duration>=10]
 
     ncd_prescrip = pd.read_parquet(path+'ncd_med.parquet')
     ncd_icd = pd.read_parquet(path+'ncd_diagnoses.parquet')
@@ -83,36 +83,36 @@ def opioid_prescriptions(opi_prescrip, beg_year, end_year, followup_interval):
     followup = f'{end_year+followup_interval}-01-01'
 
     #subset opioid prescriptions for enrollment
-    opioids_timewindow = opi_prescrip[(opi_prescrip['MEDICATION_START_DATE']>=begin) & 
-                                            (opi_prescrip['MEDICATION_START_DATE']<end)]
-    mrn_opioid_counts = opioids_timewindow.groupby('MRN').groups
+    opioids_timewindow = opi_prescrip[(opi_prescrip['issue_date']>=begin) & 
+                                            (opi_prescrip['issue_date']<end)]
+    mrn_opioid_counts = opioids_timewindow.groupby('eid').groups
     return begin,end,followup,mrn_opioid_counts#,mrn_opioids
 
 def opioid_enrollment(num_op, mrn_opioid_counts):#, mrn_opioids):
-    #subset MRNs with a qualifying number of opioid prescriptions for enrollment
+    #subset eids with a qualifying number of opioid prescriptions for enrollment
     opioid_cohort_mrns = [key for (key,value) in mrn_opioid_counts.items() if len(value) >= num_op]
     return opioid_cohort_mrns
 
 def mrn_greaterthan3_opioids(opi_prescrip, followup):
-    #identify MRNs with more than 3 opioid prescriptions to remove from the control group as the control patients can have up to 3 prescriptions
+    #identify eids with more than 3 opioid prescriptions to remove from the control group as the control patients can have up to 3 prescriptions
     mrn_remove = []
-    opioid_rx_before_followup = opi_prescrip[opi_prescrip['MEDICATION_START_DATE']<followup]
-    opioid_rx_before_followup_groups = opioid_rx_before_followup.groupby('MRN').groups
+    opioid_rx_before_followup = opi_prescrip[opi_prescrip['issue_date']<followup]
+    opioid_rx_before_followup_groups = opioid_rx_before_followup.groupby('eid').groups
     mrn_remove = [key for (key,value) in opioid_rx_before_followup_groups.items() if len(value) > 3]
     return mrn_remove
 
 def ncd_patients(ncd_prescrip, ncd_icd, end, followup):
-    #identify MRNs who develop NCD between the end of enrollment and followup based on 3+ ICD codes and prescriptions
-    ncd_icd_followup = ncd_icd[(ncd_icd['DIAGNOSIS_DATE']>=end) & 
-                                (ncd_icd['DIAGNOSIS_DATE']<=followup)].reset_index(drop=True)
-    ncd_icd_groups = ncd_icd_followup.groupby('MRN').groups
+    #identify eids who develop NCD between the end of enrollment and followup based on 3+ ICD codes and prescriptions
+    ncd_icd_followup = ncd_icd[(ncd_icd['event_dt']>=end) & 
+                                (ncd_icd['event_dt']<=followup)].reset_index(drop=True)
+    ncd_icd_groups = ncd_icd_followup.groupby('eid').groups
     ncd_icd_fu_mrns = [key for (key,value) in ncd_icd_groups.items() if len(value) >= 3]
     
     #identify patients with 1+ NCD prescriptions upon followup
-    ncd_prescrip_followup = ncd_prescrip[(ncd_prescrip['MEDICATION_START_DATE']>=end) & 
-                                        (ncd_prescrip['MEDICATION_START_DATE']<=followup)].reset_index(drop=True)
-    ncd_prescrip_groups = ncd_prescrip_followup.groupby('MRN').groups
-    ncd_prescrip_fu_mrns = set(ncd_prescrip_followup.MRN)
+    ncd_prescrip_followup = ncd_prescrip[(ncd_prescrip['issue_date']>=end) & 
+                                        (ncd_prescrip['issue_date']<=followup)].reset_index(drop=True)
+    ncd_prescrip_groups = ncd_prescrip_followup.groupby('eid').groups
+    ncd_prescrip_fu_mrns = set(ncd_prescrip_followup.eid)
     ncd_followup = list(set(ncd_icd_fu_mrns).union(ncd_prescrip_fu_mrns))
 
     #identify age of NCD onset by finding earliest date of dx or prescriptions for patients that meet NCD criteria
@@ -120,40 +120,40 @@ def ncd_patients(ncd_prescrip, ncd_icd, end, followup):
     for mrn in ncd_followup:
         if mrn in ncd_icd_fu_mrns and mrn not in ncd_prescrip_fu_mrns:
             mrn_dx = ncd_icd_followup.iloc[ncd_icd_groups[mrn]]
-            earliest_dx_date = min(mrn_dx.DIAGNOSIS_DATE)
-            age_onset.append(mrn_dx[mrn_dx.DIAGNOSIS_DATE==earliest_dx_date].AGE_AT_ENCOUNTER.values[0])
+            earliest_dx_date = min(mrn_dx.event_dt)
+            age_onset.append(mrn_dx[mrn_dx.event_dt==earliest_dx_date].AGE_AT_ENCOUNTER.values[0])
             continue
 
         if mrn in ncd_prescrip_fu_mrns and mrn not in ncd_icd_fu_mrns:
             mrn_rx = ncd_prescrip_followup.iloc[ncd_prescrip_groups[mrn]]
-            earliest_rx_date = min(mrn_rx.MEDICATION_START_DATE)
-            age_onset.append(mrn_rx[mrn_rx.MEDICATION_START_DATE==earliest_rx_date].AGE_AT_ENCOUNTER.values[0])
+            earliest_rx_date = min(mrn_rx.issue_date)
+            age_onset.append(mrn_rx[mrn_rx.issue_date==earliest_rx_date].AGE_AT_ENCOUNTER.values[0])
             continue
     
         if mrn in ncd_prescrip_fu_mrns and mrn in ncd_icd_fu_mrns:
             mrn_dx = ncd_icd_followup.iloc[ncd_icd_groups[mrn]]
-            earliest_dx_date = min(mrn_dx.DIAGNOSIS_DATE)
+            earliest_dx_date = min(mrn_dx.event_dt)
             mrn_rx = ncd_prescrip_followup.iloc[ncd_prescrip_groups[mrn]]
-            earliest_rx_date = min(mrn_rx.MEDICATION_START_DATE)
+            earliest_rx_date = min(mrn_rx.issue_date)
 
             if earliest_dx_date < earliest_rx_date:
-                age_onset.append(mrn_dx[mrn_dx.DIAGNOSIS_DATE==earliest_dx_date].AGE_AT_ENCOUNTER.values[0])
+                age_onset.append(mrn_dx[mrn_dx.event_dt==earliest_dx_date].AGE_AT_ENCOUNTER.values[0])
                 continue
             elif earliest_dx_date > earliest_rx_date:
-                age_onset.append(mrn_rx[mrn_rx.MEDICATION_START_DATE==earliest_rx_date].AGE_AT_ENCOUNTER.values[0])
+                age_onset.append(mrn_rx[mrn_rx.issue_date==earliest_rx_date].AGE_AT_ENCOUNTER.values[0])
                 continue
             elif earliest_dx_date == earliest_rx_date:
-                age_onset.append(mrn_rx[mrn_rx.MEDICATION_START_DATE==earliest_rx_date].AGE_AT_ENCOUNTER.values[0])
+                age_onset.append(mrn_rx[mrn_rx.issue_date==earliest_rx_date].AGE_AT_ENCOUNTER.values[0])
                 continue
     
-    #export dataframe of MRNs and age of NCD onset
-    ncd_followup_df = pd.DataFrame({'MRN':ncd_followup, 'age_onset':age_onset})
+    #export dataframe of eids and age of NCD onset
+    ncd_followup_df = pd.DataFrame({'eid':ncd_followup, 'age_onset':age_onset})
     return ncd_followup, ncd_followup_df
 
 def extract_mrns_with_3ormore_icd_codes(df, followup):
-    #extract MRNs with 3+ rows in a dataframe with ICD codes
-    df_sub = df[df.DIAGNOSIS_DATE<followup]
-    df_icd_groups = df_sub.groupby('MRN').groups
+    #extract eids with 3+ rows in a dataframe with ICD codes
+    df_sub = df[df.event_dt<followup]
+    df_icd_groups = df_sub.groupby('eid').groups
     df_icd_fu_mrns = [key for (key,value) in df_icd_groups.items() if len(value) >= 3]
     return df_icd_fu_mrns
 
@@ -176,34 +176,34 @@ def controldxs_filter_patients_3ormore_icd_codes(sud_icd, aud_icd, tobacco_icd, 
     return sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, sud_icd_fu_mrns#
 
 def exclude_patients_ncd_before_or_during_enrollment(ncd_prescrip, ncd_icd, ncd_thresh, end):
-    ncd_icd_exclude = ncd_icd[(ncd_icd.DIAGNOSIS_DATE<end) | 
+    ncd_icd_exclude = ncd_icd[(ncd_icd.event_dt<end) | 
                                             (ncd_icd.AGE_AT_ENCOUNTER<ncd_thresh)]
-    ncd_prescrip_exclude = ncd_prescrip[(ncd_prescrip.MEDICATION_START_DATE<end) | 
+    ncd_prescrip_exclude = ncd_prescrip[(ncd_prescrip.issue_date<end) | 
                                                     (ncd_prescrip.AGE_AT_ENCOUNTER<ncd_thresh)]
-    all_exclude = list(set(ncd_icd_exclude.MRN).union(set(ncd_prescrip_exclude.MRN)))
+    all_exclude = list(set(ncd_icd_exclude.eid).union(set(ncd_prescrip_exclude.eid)))
     return all_exclude
 
 def remove_patients_lessthan5_encounters(encounters, begin, end, control_cohort, opioid_cohort):
-    enc_period = encounters[(encounters.ENCOUNTER_DATE>=begin) & (encounters.ENCOUNTER_DATE<end)]
-    mrn_enc_count = Counter(enc_period.MRN).most_common()
-                #each entry of mrn_enc_count is a length-2 tuple of (MRN, number of encounters)
+    enc_period = encounters[(encounters.event_dt>=begin) & (encounters.event_dt<end)]
+    mrn_enc_count = Counter(enc_period.eid).most_common()
+    #each entry of mrn_enc_count is a length-2 tuple of (eid, number of encounters)
     mrn_enc_keep = [entry[0] for entry in mrn_enc_count if entry[1] >=5]
                 #subet patients with adequate encounters
-    control_cohort = control_cohort[control_cohort.MRN.isin(mrn_enc_keep)]
-    opioid_cohort = opioid_cohort[opioid_cohort.MRN.isin(mrn_enc_keep)]
+    control_cohort = control_cohort[control_cohort.eid.isin(mrn_enc_keep)]
+    opioid_cohort = opioid_cohort[opioid_cohort.eid.isin(mrn_enc_keep)]
     return control_cohort,opioid_cohort
 
 def mean_sd_age_percent_sex(end_year, control_cohort, opioid_cohort):
-    control_cohort.loc[:,'age'] = end_year - control_cohort['YOB']
-    opioid_cohort.loc[:,'age'] = end_year - opioid_cohort['YOB']
+    control_cohort.loc[:,'age'] = end_year - control_cohort['yob']
+    opioid_cohort.loc[:,'age'] = end_year - opioid_cohort['yob']
     scalar_con_mean_age = np.mean(control_cohort['age'])
     scalar_opi_mean_age = np.mean(opioid_cohort['age'])
     scalar_con_sd_age = np.std(control_cohort['age'])
     scalar_opi_sd_age = np.std(opioid_cohort['age'])
-    scalar_con_perc_male = control_cohort[control_cohort.SEX=='Male'].shape[0]/control_cohort.shape[0]
-    scalar_opi_perc_male = opioid_cohort[opioid_cohort.SEX=='Male'].shape[0]/opioid_cohort.shape[0]
-    scalar_con_perc_female = control_cohort[control_cohort.SEX=='Female'].shape[0]/control_cohort.shape[0]
-    scalar_opi_perc_female = opioid_cohort[opioid_cohort.SEX=='Female'].shape[0]/opioid_cohort.shape[0]
+    scalar_con_perc_male = control_cohort[control_cohort.sex=='Male'].shape[0]/control_cohort.shape[0]
+    scalar_opi_perc_male = opioid_cohort[opioid_cohort.sex=='Male'].shape[0]/opioid_cohort.shape[0]
+    scalar_con_perc_female = control_cohort[control_cohort.sex=='Female'].shape[0]/control_cohort.shape[0]
+    scalar_opi_perc_female = opioid_cohort[opioid_cohort.sex=='Female'].shape[0]/opioid_cohort.shape[0]
     return scalar_con_mean_age,scalar_opi_mean_age,scalar_con_sd_age,scalar_opi_sd_age,scalar_con_perc_male,scalar_opi_perc_male,scalar_con_perc_female,scalar_opi_perc_female
 
 def build_population(sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, \
@@ -213,38 +213,38 @@ def build_population(sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobac
     pop = pd.concat([control_cohort, opioid_cohort])
     pop['label'] = class_labels
 
-    pop['ncd'] = pop.MRN.isin(ncd_followup)
+    pop['ncd'] = pop.eid.isin(ncd_followup)
     pop['ncd'] = pop['ncd'].astype(int)
     
-    pop['sickle'] = pop.MRN.isin(sickle_icd_fu_mrns)
+    pop['sickle'] = pop.eid.isin(sickle_icd_fu_mrns)
     pop['sickle'] = pop['sickle'].astype(int)
     
-    pop['hiv'] = pop.MRN.isin(hiv_icd_fu_mrns)
+    pop['hiv'] = pop.eid.isin(hiv_icd_fu_mrns)
     pop['hiv'] = pop['hiv'].astype(int)
     
-    pop['aud'] = pop.MRN.isin(aud_icd_fu_mrns)
+    pop['aud'] = pop.eid.isin(aud_icd_fu_mrns)
     pop['aud'] = pop['aud'].astype(int)
 
-    pop['tobacco'] = pop.MRN.isin(tobacco_icd_fu_mrns)
+    pop['tobacco'] = pop.eid.isin(tobacco_icd_fu_mrns)
     pop['tobacco'] = pop['tobacco'].astype(int)
     
-    pop['sud'] = pop.MRN.isin(sud_icd_fu_mrns)
+    pop['sud'] = pop.eid.isin(sud_icd_fu_mrns)
     pop['sud'] = pop['sud'].astype(int)
     
-    # pop['depression'] = pop.MRN.isin(depression_icd_fu_mrns)
+    # pop['depression'] = pop.eid.isin(depression_icd_fu_mrns)
     # pop['depression'] = pop['depression'].astype(int)
 
-    # pop['anxiety'] = pop.MRN.isin(anxiety_icd_fu_mrns)
+    # pop['anxiety'] = pop.eid.isin(anxiety_icd_fu_mrns)
     # pop['anxiety'] = pop['anxiety'].astype(int)
     
     return pop
 
 def MAT(opi_prescrip, followup, pop):
     # mat_col = []
-    mat_df = opi_prescrip[opi_prescrip.MEDICATION_GENERIC_NAME.str.contains('METHADONE|BUPRENORPHINE|LOFEXIDINE')]
-    mat_df = mat_df[mat_df['MEDICATION_START_DATE']<followup]
-    # mat_df_groups = mat_df.groupby('MRN').groups
-    mat_mrns = list(set(mat_df.MRN))
+    mat_df = opi_prescrip[opi_prescrip.drug_name.str.contains('METHADONE|BUPRENORPHINE|LOFEXIDINE|NALTREXONE')]
+    mat_df = mat_df[mat_df['issue_date']<followup]
+    # mat_df_groups = mat_df.groupby('eid').groups
+    mat_mrns = list(set(mat_df.eid))
     
     # mat_mrns = [key for (key,value) in mat_df_groups.items() if len(value) >= 3]
     # mat_df_before_followup_mrns = list(mat_df_groups.keys())
@@ -254,9 +254,9 @@ def MAT(opi_prescrip, followup, pop):
     #     if len(mat_df_groups[mrn]) >= 3:
     #         mat_mrns.append(mrn)
 
-    pop['MAT'] = pop.MRN.isin(mat_mrns)
+    pop['MAT'] = pop.eid.isin(mat_mrns)
     pop['MAT'] = pop['MAT'].astype(int)
-    # for mrn in pop.MRN:
+    # for mrn in pop.eid:
     #     if mrn not in mat_mrns:
     #         mat_col.append(0)
     #     else:
@@ -268,12 +268,12 @@ def MAT(opi_prescrip, followup, pop):
 
 def opioid_rx_counts(opi_prescrip, followup, pop):
     #obtain number of opioid prescriptions before followup for each patient
-    opioid_rx_before_followup = opi_prescrip[opi_prescrip['MEDICATION_START_DATE']<followup]
-    opioid_rx_before_followup_groups = opioid_rx_before_followup.groupby('MRN').groups
+    opioid_rx_before_followup = opi_prescrip[opi_prescrip['issue_date']<followup]
+    opioid_rx_before_followup_groups = opioid_rx_before_followup.groupby('eid').groups
 
     opi_mrns = [k for (k,v) in opioid_rx_before_followup_groups.items()]
     num_rx = [len(v) for (k,v) in opioid_rx_before_followup_groups.items()]
-    opi_df = pd.DataFrame({'MRN':opi_mrns, 'opioid_count': num_rx})
+    opi_df = pd.DataFrame({'eid':opi_mrns, 'opioid_count': num_rx})
     pop = pop.merge(opi_df, how='left')
     pop.opioid_count.fillna(0, inplace=True)
     return pop
@@ -319,14 +319,14 @@ def statistical_model(hx_sickle, hx_hiv, hx_aud, hx_tobacco, hx_sud_covar, hx_ma
                         outcome='ncd'):
     if opioid_predictor=='binary_exposure':
         if outcome=='ncd':
-            formula = f"{outcome} ~ C(label) + YOB + C(SEX)"
+            formula = f"{outcome} ~ C(label) + yob + C(sex)"
         elif outcome=='age_onset':
-            formula = f"{outcome} ~ C(label) + C(SEX)"
+            formula = f"{outcome} ~ C(label) + C(sex)"
     elif opioid_predictor=='prescription_count':
         if outcome=='ncd':
-            formula = f"{outcome} ~ opioid_count + YOB + C(SEX)"
+            formula = f"{outcome} ~ opioid_count + yob + C(sex)"
         elif outcome=='age_onset':
-            formula = f"{outcome} ~ opioid_count + C(SEX)"
+            formula = f"{outcome} ~ opioid_count + C(sex)"
 
     if hx_sickle: 
         formula = f'{formula} + C(sickle)'

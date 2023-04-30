@@ -68,47 +68,67 @@ for beg_year,end_year in zip(range(1990,2010),
 
             for ncd_thresh in [45,55,65]:
 
-                #remove pts with any ncd dx or meds before end of enrollment or before age threshold 
-                all_exclude = exclude_patients_ncd_before_or_during_enrollment(ncd_prescrip, ncd_icd, ncd_thresh, end)
+                if os.path.isfile(f'{output_path}/populations/voe_{beg_year}_{end_year}_{followup_interval}yearfollowup_{num_op}OpioidsEnrollment_{ncd_thresh}NCDageExclusion.csv'):
+                    pop = pd.read_csv(f'{output_path}/populations/voe_{beg_year}_{end_year}_{followup_interval}yearfollowup_{num_op}OpioidsEnrollment_{ncd_thresh}NCDageExclusion.csv')
+                    control_cohort = pop[pop.label==0]
+                    opioid_cohort = pop[pop.label==1]
+                    scalar_con_mean_age, scalar_opi_mean_age, scalar_con_sd_age, scalar_opi_sd_age, scalar_con_perc_male, \
+                        scalar_opi_perc_male, scalar_con_perc_female, scalar_opi_perc_female = mean_sd_age_percent_sex(end_year, control_cohort, opioid_cohort)
+                else: # population does not exist, so create it
+                    #remove pts with any ncd dx or meds before end of enrollment or before age threshold 
+                    all_exclude = exclude_patients_ncd_before_or_during_enrollment(ncd_prescrip, ncd_icd, ncd_thresh, end)
 
-                #build control cohort. mrn_opioids is all MRNs with 1+ opioids during enrollment
-                control_cohort = person[(~person.MRN.isin(all_exclude)) & 
-                                (~person.MRN.isin(mrns_greaterthan3_opioids_remove_from_control_cohort)) &   
-                                (~person.MRN.isin(set(sud_icd.MRN))) & #remove patients with OUD
-                                (person.YOB<(end_year-ncd_thresh))]
+                    #build control cohort. mrn_opioids is all eids with 1+ opioids during enrollment
+                    control_cohort = person[(~person.eid.isin(all_exclude)) & 
+                                    (~person.eid.isin(mrns_greaterthan3_opioids_remove_from_control_cohort)) &   
+                                    (~person.eid.isin(set(sud_icd.eid))) & #remove patients with OUD
+                                    (person.yob<(end_year-ncd_thresh))]
 
-                #build opioid-exposed cohort
-                opioid_cohort = person[(~person.MRN.isin(all_exclude)) & 
-                                (person.MRN.isin(opioid_cohort_mrns)) & 
-                                (person.YOB<(end_year-ncd_thresh))]
+                    #build opioid-exposed cohort
+                    opioid_cohort = person[(~person.eid.isin(all_exclude)) & 
+                                    (person.eid.isin(opioid_cohort_mrns)) & 
+                                    (person.yob<(end_year-ncd_thresh))]
+                    if opioid_cohort.shape[0]==0:
+                        print(f'No opioid-exposed patients with {num_op}+ opioid prescriptions during enrollment')
+                        continue
 
-                with open("log.txt", "a") as myfile:
-                    myfile.write(f'Opioid cohort: {opioid_cohort.shape[0]}{new_line}')
+                    #write to log
+                    with open("log.txt", "a") as myfile:
+                        myfile.write(f'Opioid cohort: {opioid_cohort.shape[0]}{new_line}')
 
-                #remove patients with <5 encounters during enrollment
-                control_cohort, opioid_cohort = remove_patients_lessthan5_encounters(encounters, begin, end, control_cohort, opioid_cohort)
+                    #remove patients with <5 encounters during enrollment
+                    control_cohort, opioid_cohort = remove_patients_lessthan5_encounters(encounters, begin, end, control_cohort, opioid_cohort)
 
-                #calculate mean/SD of age and percentage of each sex for controls and opioid-exposed patients 
-                scalar_con_mean_age, scalar_opi_mean_age, scalar_con_sd_age, scalar_opi_sd_age, scalar_con_perc_male, scalar_opi_perc_male, scalar_con_perc_female, scalar_opi_perc_female = mean_sd_age_percent_sex(end_year, control_cohort, opioid_cohort)
+                    #calculate mean/SD of age and percentage of each sex for controls and opioid-exposed patients 
+                    scalar_con_mean_age, scalar_opi_mean_age, scalar_con_sd_age, scalar_opi_sd_age, scalar_con_perc_male, scalar_opi_perc_male, scalar_con_perc_female, scalar_opi_perc_female = mean_sd_age_percent_sex(end_year, control_cohort, opioid_cohort)
+                    
+                    #label patients by cohort, NCD outcome, and filter patients with 3+ ICD codes for controlled diagnoses
+                    pop = build_population(sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, 
+                            tobacco_icd_fu_mrns, sud_icd_fu_mrns, 
+                            ncd_followup, control_cohort, opioid_cohort)
+                    
+                    # Check if there are at least 5 opioid-exposed and 5 NCD patients
+                    if sum(pop.ncd)<5:
+                        print(f'Less than 5 NCD patients in {beg_year}-{end_year} with a followup of {followup_interval} years, {ncd_thresh} age threshold, and {num_op}+ opioid prescriptions during enrollment')
+                        continue
                 
-                #label patients by cohort, NCD outcome, and filter patients with 3+ ICD codes for controlled diagnoses
-                pop = build_population(sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, 
-                        tobacco_icd_fu_mrns, sud_icd_fu_mrns, 
-                        ncd_followup, control_cohort, opioid_cohort)
-                
-                #number of opioid prescriptions for each patient
-                pop = opioid_rx_counts(opi_prescrip, followup, pop)
+                    if sum(pop.label)<5:
+                        print(f'Less than 5 opioid-exposed patients in {beg_year}-{end_year} with a followup of {followup_interval} years, {ncd_thresh} age threshold, and {num_op}+ opioid prescriptions during enrollment')
+                        continue
 
-                #mark patients with medication-assisted therapy (3+ prescriptions)
-                pop = MAT(opi_prescrip, followup, pop)
+                    #number of opioid prescriptions for each patient
+                    pop = opioid_rx_counts(opi_prescrip, followup, pop)
 
-                #only retain patients with NCD, add column for age_onset
-                if outcome == 'age_onset':
-                    pop = pop[pop.ncd==1]
-                    pop = pop.merge(ncd_followup_df.loc[:,['MRN','age_onset']])
-                
-                #save population
-                pop.to_csv(f'{output_path}/populations/voe_{beg_year}_{end_year}_{followup_interval}yearfollowup_{num_op}OpioidsEnrollment_{ncd_thresh}NCDageExclusion_{c}.csv')   
+                    #mark patients with medication-assisted therapy (3+ prescriptions)
+                    pop = MAT(opi_prescrip, followup, pop)
+
+                    #only retain patients with NCD, add column for age_onset
+                    if outcome == 'age_onset':
+                        pop = pop[pop.ncd==1]
+                        pop = pop.merge(ncd_followup_df.loc[:,['eid','age_onset']])
+                    
+                    #save population
+                    pop.to_csv(f'{output_path}/populations/voe_{beg_year}_{end_year}_{followup_interval}yearfollowup_{num_op}OpioidsEnrollment_{ncd_thresh}NCDageExclusion.csv')   
 
                 with open("log.txt", "a") as myfile:
                     myfile.write(f"{sum(pop[pop.label==0]['ncd'])} NCD pts in the control group{new_line}{sum(pop[pop.label==1]['ncd'])} NCD pts in the opioid group.{new_line}")
