@@ -89,7 +89,7 @@ for beg_year,end_year in zip(range(1990,2010),
                                     (person.eid.isin(opioid_cohort_mrns)) & 
                                     (person.yob<(end_year-ncd_thresh))]
                     if opioid_cohort.shape[0]==0:
-                        print(f'No opioid-exposed patients with {num_op}+ opioid prescriptions during enrollment')
+                        print(f'No opioid-exposed patients in {beg_year}-{end_year} with a followup of {followup_interval} years, {ncd_thresh} age threshold, and {num_op}+ opioid prescriptions during enrollment')
                         continue
 
                     #write to log
@@ -107,6 +107,11 @@ for beg_year,end_year in zip(range(1990,2010),
                             tobacco_icd_fu_mrns, sud_icd_fu_mrns, 
                             ncd_followup, control_cohort, opioid_cohort)
                     
+                    # if age_onset is the outcome, only keep patients with NCD, and add column for age_onset
+                    if outcome == 'age_onset':
+                        pop = pop[pop.ncd==1]
+                        pop = pop.merge(ncd_followup_df.loc[:,['eid','age_onset']])
+                    
                     # Check if there are at least 5 opioid-exposed and 5 NCD patients
                     if sum(pop.ncd)<5:
                         print(f'Less than 5 NCD patients in {beg_year}-{end_year} with a followup of {followup_interval} years, {ncd_thresh} age threshold, and {num_op}+ opioid prescriptions during enrollment')
@@ -122,11 +127,6 @@ for beg_year,end_year in zip(range(1990,2010),
                     #mark patients with medication-assisted therapy (3+ prescriptions)
                     pop = MAT(opi_prescrip, followup, pop)
 
-                    #only retain patients with NCD, add column for age_onset
-                    if outcome == 'age_onset':
-                        pop = pop[pop.ncd==1]
-                        pop = pop.merge(ncd_followup_df.loc[:,['eid','age_onset']])
-                    
                     #save population
                     pop.to_csv(f'{output_path}/populations/voe_{beg_year}_{end_year}_{followup_interval}yearfollowup_{num_op}OpioidsEnrollment_{ncd_thresh}NCDageExclusion.csv')   
 
