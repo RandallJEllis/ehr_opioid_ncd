@@ -241,6 +241,7 @@ def build_population(sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobac
 
 def MAT(opi_prescrip, followup, pop):
     # mat_col = []
+    opi_prescrip = opi_prescrip[~opi_prescrip.drug_name.isna()]
     mat_df = opi_prescrip[opi_prescrip.drug_name.str.contains('METHADONE|BUPRENORPHINE|LOFEXIDINE|NALTREXONE')]
     mat_df = mat_df[mat_df['issue_date']<followup]
     # mat_df_groups = mat_df.groupby('eid').groups

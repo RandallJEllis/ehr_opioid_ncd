@@ -35,8 +35,8 @@ print("Current Time =", current_time)
 person, encounters, opi_prescrip, ncd_prescrip, ncd_icd, sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd = import_data()
 #numrecsthreshold
 
-for beg_year,end_year in zip(range(1990,2010),
-                             range(1993,2013)):
+for beg_year,end_year in zip(range(1990,2012),
+                             range(1993,2015)):
     
     c, control_N, opioid_N, control_mean_age, opioid_mean_age, control_sd_age, opioid_sd_age, control_perc_male, opioid_perc_male, control_perc_female,\
          opioid_perc_female, coefs, stderrs, ps, low_interval, high_interval, num_control_ncd, num_opioid_ncd, followup_interval_col, beg_year_col, end_year_col,\
@@ -44,7 +44,7 @@ for beg_year,end_year in zip(range(1990,2010),
                  hx_anxiety_col,hx_mat_col = initialize_empty_lists()
 
     for followup_interval in [5, 10]:
-        #the data stop at 2022, so skip 10-year follow-up when the end_year is later than 2012
+        #the data stop at 2017-18, so skip 10-year follow-up when the end_year is later than 2012
         if followup_interval==10 and end_year>2007:
             continue
 

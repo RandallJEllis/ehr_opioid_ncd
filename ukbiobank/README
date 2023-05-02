@@ -1,0 +1,4 @@
+UK Biobank data export
+Table exporter: https://dnanexus.gitbook.io/uk-biobank-rap/working-on-the-research-analysis-platform/accessing-phenotypic-data-as-a-file
+
+return to project, click checkbox next to file, click "More Actions…" (three dots in the rightmost column), click Download, hover over file, and click link icon to generate a URL that "will remain active for 24 hours. Anyone with the link can download the file without authentication."; wget within Minerva and go to work :) 

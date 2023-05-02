@@ -14,14 +14,12 @@ patient.to_parquet('../tidy_data/patient.parquet')
 ### prescriptions
 med = pd.read_csv('../raw_data/data_gp_scripts.tsv', sep='\t') 
 
-# need to know quantity for enrollment; remove prescriptions with no quantity value (~7.8M out of 57M total)
-med = med[~med.quantity.isna()]
-
-# remove prescriptions before 1990 (~34k)
+# remove prescriptions before 1990 (~34k out of 58M total)
 med.issue_date = pd.to_datetime(med.issue_date)
 med = med[med.issue_date.dt.year>=1990]
 
 # create subsets based on whether drug name, read2 or BNF are NaN
+# only remove a prescription if all three are NaN
 missing_drug = med[med.drug_name.isna()]
 remove = missing_drug[(missing_drug.bnf_code.isna()) & (missing_drug.read_2.isna())]
 med = med.drop(labels=remove.index) # 5 prescriptions removed
@@ -59,9 +57,31 @@ bnf_lkp.to_parquet('../tidy_data/bnf_lkp.parquet')
 read_v2_drugs_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_drugs_lkp')
 read_v2_drugs_lkp.to_parquet('../tidy_data/read_v2_drugs_lkp.parquet')
 
+### read2 - ICD9 and ICD10
+read2_icd9 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_icd9')
+read2_icd9.to_parquet('../tidy_data/readv2_icd9.parquet')
+read2_icd10 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_icd10')
+read2_icd10.to_parquet('../tidy_data/readv2_icd10.parquet')
+
+### read3 - ICD9 and ICD10
+read3_icd9 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_ctv3_icd9')
+read3_icd9.to_parquet('../tidy_data/readv3_icd9.parquet')
+read3_icd10 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_ctv3_icd10')
+read3_icd10.to_parquet('../tidy_data/readv3_icd10.parquet')
+
+### read2 and read3 lookups
+read2_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_lkp')
+read2_lkp.to_parquet('../tidy_data/read2_lkp.parquet')
+read3_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_ctv3_lkp')
+read3_lkp.to_parquet('../tidy_data/read3_lkp.parquet')
+
 ### diagnoses
-gp_clin = pd.read_csv('../raw_data/data_gp_clinical.tsv', sep='\t')
-# remove diagnoses before 1990 (~1.5M of ~124M total)
+# Re-exported data_gp_clinical on May 1st, 2023 to include Read CTV3 codes (86M rows that had NaN in the read_2 column)
+gp_clin = pd.read_csv('../raw_data/data_gp_clinical_may12023.tsv', sep='\t')
+# There are ZERO rows with both read_2 and read_3 codes and ZERO rows with neither code
+gp_clin = gp_clin.drop(columns=['eid(gp_clinical - eid)'])
+gp_clin = gp_clin.rename(columns={'eid(participant - eid)':'eid'})
+# remove diagnoses before 1990 (~1.5M of ~123M total)
 gp_clin.event_dt = pd.to_datetime(gp_clin.event_dt)
 gp_clin = gp_clin[gp_clin.event_dt.dt.year>=1990]
 gp_clin = gp_clin.reset_index(drop=True)
@@ -89,12 +109,6 @@ hesin_diag_overlap = hesin_diag_overlap.reset_index(drop=True)
 hesin_diag_overlap = hesin_diag_overlap.drop(columns=['eid_ins_index'])
 hesin_diag_overlap.to_parquet('../tidy_data/data_hesin_diag.parquet')
 
-### read2
-read2_icd9 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_icd9')
-read2_icd9.to_parquet('../tidy_data/readv2_icd9.parquet')
-read2_icd10 = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='read_v2_icd10')
-read2_icd10.to_parquet('../tidy_data/readv2_icd10.parquet')
-
 ### icd9 and icd10
 icd9_lkp = pd.read_excel('../all_lkps_maps_v3.xlsx', sheet_name='icd9_lkp')
 icd9_lkp.rename(columns={'DESCRIPTION_ICD9':'DESCRIPTION'}, inplace=True)
@@ -109,7 +123,9 @@ for i,code in enumerate(icd10_lkp.ALT_CODE):
         icd10_lkp.loc[icd10_lkp.index.max(), 'ALT_CODE'] = code[:-1]
 icd10_lkp.to_parquet('../tidy_data/icd10_lkp.parquet')
 
-# Create encounters file based on hospitalization episodes and GP clinical events
-hesin = hesin.rename(columns={'epistart':'event_dt'})
-encounters = pd.concat([gp_clin[['eid', 'event_dt']], hesin[['eid', 'event_dt']]])
-encounters.to_parquet('../tidy_data/encounters.parquet')
+# Create encounters file based on hospitalization diagnoses, GP clinical events, and prescriptions
+enc = pd.concat([hesin_diag_overlap[['eid','epistart']].rename(columns={'epistart':'event_dt'}),
+                    gp_clin[['eid','event_dt']],
+                    med[['eid','issue_date']].rename(columns={'issue_date':'event_dt'})
+                    ])
+enc.to_parquet('../tidy_data/encounters.parquet')    

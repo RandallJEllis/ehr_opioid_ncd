@@ -19,5 +19,5 @@ antidementia_df = med[(med.read_2.str.startswith('dy', na=False)) |
                       (med.read_2.str.startswith('dB', na=False)) |
                       (med.bnf_code.str.startswith('0411', na=False)) | 
                       (med.bnf_code.str.startswith('04.11', na=False)) 
-           ]
+                    ]
 antidementia_df.to_parquet('../tidy_data/ncd_med.parquet')
