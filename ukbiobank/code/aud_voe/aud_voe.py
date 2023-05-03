@@ -11,21 +11,21 @@ from utils_AUD import *
 import sys
 
 #choose outcome: binary outcome ('ncd') of NCD or age of onset ('age_onset')
-outcome = sys.argv[1] #'ncd' or 'age_onset'
+outcome = sys.argv[1]
 
 print(f'Outcome variable is {outcome}')
 
 if outcome != 'age_onset':
-    output_path = f'../../voe_outputs/aud/controlsNoAUDDX/binary_outcome/controlVarOUD'
+    output_path = f'../../voe_outputs/aud/controlsNoAUDDX/binary_outcome/controlVarSUD'
 else:
-    output_path = f'../../voe_outputs/aud/controlsNoAUDDX/age_onset_ncd/controlVarOUD'
+    output_path = f'../../voe_outputs/aud/controlsNoAUDDX/age_onset_ncd/controlVarSUD'
 
 new_line = '\n' #for use with f-strings to make the log easier to read
 now = datetime.now()
 current_time = now.strftime("%H:%M:%S")
 print("Current Time =", current_time)
 
-person, encounters, opi_prescrip, ncd_prescrip, ncd_icd, sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd, hepc_icd,depression_icd,anxiety_icd = import_data()
+person, encounters, opi_prescrip, ncd_prescrip, ncd_icd, sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd = import_data()
 #numrecsthreshold
 
 for beg_year,end_year in zip(range(1990,2012),
@@ -54,9 +54,8 @@ for beg_year,end_year in zip(range(1990,2012),
         ncd_followup,ncd_followup_df = ncd_patients(ncd_prescrip, ncd_icd, end, followup)
 
         #subset diseases being controlled for by time, and patients by 3+ ICD codes
-        sickle_icd_fu_mrns, hepc_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, sud_icd_fu_mrns,depression_icd_fu_mrns, \
-            anxiety_icd_fu_mrns = controldxs_filter_patients_3ormore_icd_codes(sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd, hepc_icd,\
-                 depression_icd,anxiety_icd,followup)
+        sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, \
+            sud_icd_fu_mrns = controldxs_filter_patients_3ormore_icd_codes(sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd,followup)
                 
         # for num_op in [5, 10, 15]:
             
@@ -104,8 +103,9 @@ for beg_year,end_year in zip(range(1990,2012),
                 scalar_con_mean_age, scalar_aud_mean_age, scalar_con_sd_age, scalar_aud_sd_age, scalar_con_perc_male, scalar_aud_perc_male, scalar_con_perc_female, scalar_aud_perc_female = mean_sd_age_percent_sex(end_year, control_cohort, aud_cohort)
                 
                 #label patients by cohort, NCD outcome, and filter patients with 3+ ICD codes for controlled diagnoses
-                pop = build_population(sickle_icd_fu_mrns, hepc_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, sud_icd_fu_mrns, \
-                    depression_icd_fu_mrns,anxiety_icd_fu_mrns,
+                pop = build_population(sickle_icd_fu_mrns, \
+                                       hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, sud_icd_fu_mrns, \
+                    #hepc_icd_fu_mrns, depression_icd_fu_mrns,anxiety_icd_fu_mrns,
                     ncd_followup, control_cohort, aud_cohort)
                 
                 # if age_onset is the outcome, only keep patients with NCD, and add column for age_onset

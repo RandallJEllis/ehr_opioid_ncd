@@ -14,8 +14,8 @@ Helper functions to simplify the VoE scripts
 
 def import_data():
     path = '../../tidy_data/'
-    person = pd.read_parquet(path+'Patient.parquet')
-    encounters = pd.read_parquet(path+'Encounters.parquet')
+    person = pd.read_parquet(path+'patient.parquet')
+    encounters = pd.read_parquet(path+'encounters.parquet')
     
     opi_prescrip = pd.read_parquet(path+'opioid_med.parquet')
     #only keep prescriptions with a certain duration
@@ -39,10 +39,10 @@ def import_data():
 
     hiv_icd = pd.read_parquet(path+'hiv_diagnoses.parquet')
     sickle_icd = pd.read_parquet(path+'sickle_diagnoses.parquet')
-    hepc_icd = pd.read_parquet(path+'hepc_diagnoses.parquet')
-    depression_icd = pd.read_parquet(path+'depression_diagnoses.parquet')
-    anxiety_icd = pd.read_parquet(path+'anxiety_diagnoses.parquet')
-    return person,encounters,opi_prescrip,ncd_prescrip,ncd_icd,sud_icd,aud_icd,tobacco_icd,hiv_icd,sickle_icd,hepc_icd,depression_icd,anxiety_icd
+    # hepc_icd = pd.read_parquet(path+'hepc_diagnoses.parquet')
+    # depression_icd = pd.read_parquet(path+'depression_diagnoses.parquet')
+    # anxiety_icd = pd.read_parquet(path+'anxiety_diagnoses.parquet')
+    return person,encounters,opi_prescrip,ncd_prescrip,ncd_icd,sud_icd,aud_icd,tobacco_icd,hiv_icd,sickle_icd
 
 def initialize_empty_lists():
     c=1
@@ -163,13 +163,14 @@ def extract_mrns_with_3ormore_icd_codes(df, followup):
     df_icd_fu_mrns = [key for (key,value) in df_icd_groups.items() if len(value) >= 3]
     return df_icd_fu_mrns
 
-def controldxs_filter_patients_3ormore_icd_codes(sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd, hepc_icd,
-     depression_icd,anxiety_icd,followup):
+def controldxs_filter_patients_3ormore_icd_codes(sud_icd, aud_icd, tobacco_icd, hiv_icd, sickle_icd, #hepc_icd,
+     #depression_icd,anxiety_icd,
+     followup):
     #sickle cell
     sickle_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(sickle_icd, followup)
 
     #hepatitis C
-    hepc_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(hepc_icd, followup)
+    #hepc_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(hepc_icd, followup)
                 
     #HIV
     hiv_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(hiv_icd, followup)
@@ -184,12 +185,13 @@ def controldxs_filter_patients_3ormore_icd_codes(sud_icd, aud_icd, tobacco_icd, 
     sud_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(sud_icd, followup)
 
     #depression
-    depression_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(depression_icd, followup)
+    #depression_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(depression_icd, followup)
     
     #anxiety
-    anxiety_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(anxiety_icd, followup)
+    #anxiety_icd_fu_mrns = extract_mrns_with_3ormore_icd_codes(anxiety_icd, followup)
 
-    return sickle_icd_fu_mrns, hepc_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns,sud_icd_fu_mrns,depression_icd_fu_mrns,anxiety_icd_fu_mrns
+    return sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns,sud_icd_fu_mrns
+            #hepc_icd_fu_mrns, #depression_icd_fu_mrns,anxiety_icd_fu_mrns
 
 def exclude_patients_ncd_before_or_during_enrollment(ncd_prescrip, ncd_icd, ncd_thresh, end):
     ncd_icd_exclude = ncd_icd[(ncd_icd.event_dt<end) | 
@@ -222,8 +224,8 @@ def mean_sd_age_percent_sex(end_year, control_cohort, opioid_cohort):
     scalar_opi_perc_female = opioid_cohort[opioid_cohort.sex=='Female'].shape[0]/opioid_cohort.shape[0]
     return scalar_con_mean_age,scalar_opi_mean_age,scalar_con_sd_age,scalar_opi_sd_age,scalar_con_perc_male,scalar_opi_perc_male,scalar_con_perc_female,scalar_opi_perc_female
 
-def build_population(sickle_icd_fu_mrns, hepc_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, sud_icd_fu_mrns,  depression_icd_fu_mrns,\
-     anxiety_icd_fu_mrns, 
+def build_population(sickle_icd_fu_mrns, hiv_icd_fu_mrns, aud_icd_fu_mrns, tobacco_icd_fu_mrns, sud_icd_fu_mrns,  \
+     #depression_icd_fu_mrns, hepc_icd_fu_mrns, anxiety_icd_fu_mrns, 
      ncd_followup, control_cohort, opioid_cohort):
     class_labels = [0]*control_cohort.shape[0] + [1]*opioid_cohort.shape[0]
     pop = pd.concat([control_cohort, opioid_cohort])
@@ -235,8 +237,8 @@ def build_population(sickle_icd_fu_mrns, hepc_icd_fu_mrns, hiv_icd_fu_mrns, aud_
     pop['sickle'] = pop.eid.isin(sickle_icd_fu_mrns)
     pop['sickle'] = pop['sickle'].astype(int)
     
-    pop['hepc'] = pop.eid.isin(hepc_icd_fu_mrns)
-    pop['hepc'] = pop['hepc'].astype(int)
+    # pop['hepc'] = pop.eid.isin(hepc_icd_fu_mrns)
+    # pop['hepc'] = pop['hepc'].astype(int)
     
     pop['hiv'] = pop.eid.isin(hiv_icd_fu_mrns)
     pop['hiv'] = pop['hiv'].astype(int)
@@ -250,11 +252,11 @@ def build_population(sickle_icd_fu_mrns, hepc_icd_fu_mrns, hiv_icd_fu_mrns, aud_
     pop['sud'] = pop.eid.isin(sud_icd_fu_mrns)
     pop['sud'] = pop['sud'].astype(int)
     
-    pop['depression'] = pop.eid.isin(depression_icd_fu_mrns)
-    pop['depression'] = pop['depression'].astype(int)
+    # pop['depression'] = pop.eid.isin(depression_icd_fu_mrns)
+    # pop['depression'] = pop['depression'].astype(int)
 
-    pop['anxiety'] = pop.eid.isin(anxiety_icd_fu_mrns)
-    pop['anxiety'] = pop['anxiety'].astype(int)
+    # pop['anxiety'] = pop.eid.isin(anxiety_icd_fu_mrns)
+    # pop['anxiety'] = pop['anxiety'].astype(int)
     
     return pop
 
@@ -339,9 +341,9 @@ def statistical_model(hx_tobacco, hx_sud_covar, outcome='ncd'): #hx_sickle, hx_h
     #         formula = f"{outcome} ~ opioid_count + C(SEX)"
     
     if outcome=='ncd':
-            formula = f"{outcome} ~ C(label) + YOB + C(SEX)"
+            formula = f"{outcome} ~ C(label) + yob + C(sex)"
     elif outcome=='age_onset':
-        formula = f"{outcome} ~ C(label) + C(SEX)"
+        formula = f"{outcome} ~ C(label) + C(sex)"
 
     # if hx_sickle: 
     #     formula = f'{formula} + C(sickle)'
