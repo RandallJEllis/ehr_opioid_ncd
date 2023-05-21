@@ -108,6 +108,15 @@ for beg_year,end_year in zip([2006,2007,2008,2009,2010,2011,2012,2013,2014],
             if outcome == 'age_onset':
                 pop = pop[pop.ncd==1]
                 pop = pop.merge(ncd_followup_df.loc[:,['MRN','age_onset']])
+
+            # Check if there are at least 5 opioid-exposed and 5 NCD patients
+            if sum(pop.ncd)<5:
+                print(f'Less than 5 NCD patients in {beg_year}-{end_year} with a followup of {followup_interval} years, {ncd_thresh} age threshold')
+                continue
+        
+            if sum(pop.label)<5:
+                print(f'Less than 5 AUD patients in {beg_year}-{end_year} with a followup of {followup_interval} years, {ncd_thresh} age threshold')
+                continue
             
             #save population
             pop.to_csv(f'{output_path}/populations/voe_{beg_year}_{end_year}_{followup_interval}yearfollowup_{ncd_thresh}NCDageExclusion_{c}.csv')   

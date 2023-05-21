@@ -26,6 +26,7 @@ def import_data():
     ncd_icd = pd.read_parquet(path+'ncd_diagnoses.parquet')
 
     # sud_icd = pd.read_parquet(path+'sud_diagnoses.parquet')
+    # WE USED OUD FOR THIS!
     sud_icd = pd.read_parquet(path+'oud_diagnoses.parquet')
     aud_icd = pd.read_parquet(path+'aud_diagnoses.parquet')
     tobacco_icd = pd.read_parquet(path+'tobacco_diagnoses.parquet')
