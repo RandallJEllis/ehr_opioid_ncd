@@ -134,55 +134,61 @@ for beg_year,end_year in zip(range(1990,2012),
                     myfile.write(f"{sum(pop[pop.label==0]['ncd'])} NCD pts in the control group{new_line}{sum(pop[pop.label==1]['ncd'])} NCD pts in the opioid group.{new_line}")
 
                 for hx_sickle in [0,1]:
-                        for hx_hiv in [0,1]:
-                            for hx_aud in [0,1]:
-                                for hx_tobacco in [0,1]:
-                                    for hx_sud_covar in [0,1]:
-                                        # for hx_depression in [0,1]:
-                                        #     for hx_anxiety in [0,1]:
-                                        for hx_mat in [0,1]:
+                    if hx_sickle==1 and sum(pop.sickle)==0:
+                        continue
+                    for hx_hiv in [0,1]:
+                        if hx_hiv==1 and sum(pop.hiv)==0:
+                            continue
+                        for hx_aud in [0,1]:
+                            if hx_aud==1 and sum(pop.aud)==0:
+                                continue
+                            for hx_tobacco in [0,1]:
+                                if hx_tobacco==1 and sum(pop.tobacco)==0:
+                                    continue
+                                for hx_sud_covar in [0,1]:
+                                    if hx_sud_covar==1 and sum(pop.sud)==0:
+                                        continue
+                                    for hx_mat in [0,1]:
+                                        if hx_mat==1 and sum(pop.MAT)==0:
+                                            continue
+                                        with open("log.txt", "a") as myfile:
+                                            myfile.write(f'{str(c)}{new_line}')
 
-                                            # if hx_aud==1 and hx_sud_covar==1:
-                                                # continue
+                                        now = datetime.now()
+                                        current_time = now.strftime("%H:%M:%S")
+                                        with open("log.txt", "a") as myfile:
+                                            myfile.write(f"Current Time = {current_time}{new_line}")
 
-                                            with open("log.txt", "a") as myfile:
-                                                myfile.write(f'{str(c)}{new_line}')
-
-                                            now = datetime.now()
-                                            current_time = now.strftime("%H:%M:%S")
-                                            with open("log.txt", "a") as myfile:
-                                                myfile.write(f"Current Time = {current_time}{new_line}")
-
-                                            #update results CSV
-                                            update_results_csv(beg_year, end_year, c, control_N, opioid_N, control_mean_age, opioid_mean_age, \
-                                                control_sd_age, opioid_sd_age, control_perc_male, opioid_perc_male, control_perc_female, \
-                                                    opioid_perc_female, coefs, stderrs, ps, low_interval, high_interval, num_control_ncd, num_opioid_ncd,\
-                                                            followup_interval_col, beg_year_col, end_year_col, num_op_col, ncd_thresh_col, hx_sickle_col,\
-                                                                hx_hiv_col, hx_aud_col, hx_tobacco_col, hx_sud_covar_col, \
-                                                                    hx_mat_col, output_path)
-                                            
-                                            #set up statistical model
-                                            formula = statistical_model(hx_sickle, hx_hiv, hx_aud, hx_tobacco, hx_sud_covar, hx_mat,\
-                                                    opioid_predictor=opioid_predictor, outcome=outcome)
-
-                                            #save coefficients for each individual model/analysis
-                                            res = save_coefficient_data(beg_year, end_year, c, pop, formula, output_path, outcome=outcome)
-
-                                            #append coefficients to larger lists for whole enrollment periods
-                                            append_data_to_lists(beg_year, end_year, control_N, opioid_N, control_mean_age, opioid_mean_age, \
-                                                control_sd_age, opioid_sd_age, control_perc_male, opioid_perc_male, control_perc_female,\
-                                                        opioid_perc_female, coefs, stderrs, ps, low_interval, high_interval, num_control_ncd, num_opioid_ncd, \
-                                                        followup_interval_col, beg_year_col, end_year_col, num_op_col, ncd_thresh_col, hx_sickle_col, \
+                                        #update results CSV
+                                        update_results_csv(beg_year, end_year, c, control_N, opioid_N, control_mean_age, opioid_mean_age, \
+                                            control_sd_age, opioid_sd_age, control_perc_male, opioid_perc_male, control_perc_female, \
+                                                opioid_perc_female, coefs, stderrs, ps, low_interval, high_interval, num_control_ncd, num_opioid_ncd,\
+                                                        followup_interval_col, beg_year_col, end_year_col, num_op_col, ncd_thresh_col, hx_sickle_col,\
                                                             hx_hiv_col, hx_aud_col, hx_tobacco_col, hx_sud_covar_col, \
-                                                                hx_mat_col, followup_interval, num_op, ncd_thresh, control_cohort, opioid_cohort, \
-                                                                    scalar_con_mean_age, scalar_opi_mean_age, scalar_con_sd_age, scalar_opi_sd_age,\
-                                                                            scalar_con_perc_male, scalar_opi_perc_male, scalar_con_perc_female,\
-                                                                                scalar_opi_perc_female, pop, hx_sickle,
-                                                                                hx_hiv, hx_aud,\
-                                                                                    hx_tobacco, hx_sud_covar, hx_mat, res,\
-                                                                                        opioid_predictor=opioid_predictor)
+                                                                hx_mat_col, output_path)
+                                        
+                                        #set up statistical model
+                                        formula = statistical_model(hx_sickle, hx_hiv, hx_aud, hx_tobacco, hx_sud_covar, hx_mat,\
+                                                opioid_predictor=opioid_predictor, outcome=outcome)
 
-                                            c+=1
+                                        #save coefficients for each individual model/analysis
+                                        res = save_coefficient_data(beg_year, end_year, c, pop, formula, output_path, outcome=outcome)
+
+                                        #append coefficients to larger lists for whole enrollment periods
+                                        append_data_to_lists(beg_year, end_year, control_N, opioid_N, control_mean_age, opioid_mean_age, \
+                                            control_sd_age, opioid_sd_age, control_perc_male, opioid_perc_male, control_perc_female,\
+                                                    opioid_perc_female, coefs, stderrs, ps, low_interval, high_interval, num_control_ncd, num_opioid_ncd, \
+                                                    followup_interval_col, beg_year_col, end_year_col, num_op_col, ncd_thresh_col, hx_sickle_col, \
+                                                        hx_hiv_col, hx_aud_col, hx_tobacco_col, hx_sud_covar_col, \
+                                                            hx_mat_col, followup_interval, num_op, ncd_thresh, control_cohort, opioid_cohort, \
+                                                                scalar_con_mean_age, scalar_opi_mean_age, scalar_con_sd_age, scalar_opi_sd_age,\
+                                                                        scalar_con_perc_male, scalar_opi_perc_male, scalar_con_perc_female,\
+                                                                            scalar_opi_perc_female, pop, hx_sickle,
+                                                                            hx_hiv, hx_aud,\
+                                                                                hx_tobacco, hx_sud_covar, hx_mat, res,\
+                                                                                    opioid_predictor=opioid_predictor)
+
+                                        c+=1
 
     export_final_data_enrollment_period(new_line, beg_year, end_year, c, control_N, opioid_N, control_mean_age, opioid_mean_age, control_sd_age,\
          opioid_sd_age, control_perc_male, opioid_perc_male, control_perc_female, opioid_perc_female, coefs, stderrs, ps, low_interval, high_interval, \

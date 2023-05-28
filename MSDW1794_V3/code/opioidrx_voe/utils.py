@@ -313,7 +313,10 @@ def update_results_csv(beg_year, end_year, c, control_N, opioid_N, control_mean_
                         'hx_sud_covar': hx_sud_covar_col,
                         'hx_MAT': hx_mat_col
                         })            
-        df.to_csv(f'{output_path}/analyses/voe_{beg_year}_{end_year}.csv', index=None)
+        PATH = f'{output_path}/analyses/period_summaries/'
+        if not os.path.exists(PATH):
+            os.makedirs(PATH)         
+        df.to_csv(f'{PATH}voe_{beg_year}_{end_year}.csv', index=None)
 
 def statistical_model(hx_sickle, hx_hiv, hx_aud, hx_tobacco, hx_sud_covar, hx_mat, opioid_predictor='binary_exposure',
                         outcome='ncd'):
@@ -352,7 +355,10 @@ def save_coefficient_data(beg_year, end_year, c, pop, formula,output_path, outco
     # Note that tables is a list. The table at index 1 is the "core" table. Additionally, read_html puts dfs in a list, so we want index 0
     results_as_html = results_summary.tables[1].as_html()
     fifi = pd.read_html(results_as_html, header=0, index_col=0)[0]
-    fifi.to_csv(f'{output_path}/analyses/voe_{beg_year}_{end_year}_{c}.csv')
+    PATH = f'{output_path}/analyses/single_expts/'
+    if not os.path.exists(PATH):
+        os.makedirs(PATH)  
+    fifi.to_csv(f'{PATH}/voe_{beg_year}_{end_year}_{c}.csv')
     return res
 
 def append_data_to_lists(beg_year, end_year, control_N, opioid_N, control_mean_age, opioid_mean_age, control_sd_age, opioid_sd_age, control_perc_male,\
@@ -376,8 +382,8 @@ def append_data_to_lists(beg_year, end_year, control_N, opioid_N, control_mean_a
 
     num_control_ncd.append(sum(pop[pop.label==0]['ncd']))
     num_opioid_ncd.append(sum(pop[pop.label==1]['ncd']))
-    control_N.append(control_cohort.shape[0])
-    opioid_N.append(opioid_cohort.shape[0])
+    control_N.append(pop[pop.label==0].shape[0])
+    opioid_N.append(pop[pop.label==1].shape[0])
     followup_interval_col.append(followup_interval)
     beg_year_col.append(beg_year)
     end_year_col.append(end_year)
@@ -404,7 +410,7 @@ def export_final_data_enrollment_period(new_line, beg_year, end_year, c, control
               hx_hiv_col, hx_aud_col, hx_tobacco_col, hx_sud_covar_col, hx_mat_col,output_path):
     with open("log.txt", "a") as myfile:
         myfile.write(f'{c} specifications finished.{new_line}')                     
-        df = pd.DataFrame(
+    df = pd.DataFrame(
         {'control_N': control_N,
         'opioid_N': opioid_N,
         'control_AgeMean': control_mean_age,
@@ -434,4 +440,7 @@ def export_final_data_enrollment_period(new_line, beg_year, end_year, c, control
         'hx_sud_covar': hx_sud_covar_col,
         'hx_MAT': hx_mat_col
         })            
-    df.to_csv(f'{output_path}/analyses/voe_{beg_year}_{end_year}.csv', index=None)
+    PATH = f'{output_path}/analyses/period_summaries/'
+    if not os.path.exists(PATH):
+        os.makedirs(PATH)         
+    df.to_csv(f'{PATH}voe_{beg_year}_{end_year}.csv', index=None)

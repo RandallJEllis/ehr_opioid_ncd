@@ -3,7 +3,7 @@
 #BSUB -q premium
 #BSUB -n 1
 #BSUB -R rusage[mem=16000]
-#BSUB -W 24:00
+#BSUB -W 10:00
 #BSUB -o stdout.%J.%I
 #BSUB -e stderr.%J.%I
 

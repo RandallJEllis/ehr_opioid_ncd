@@ -129,7 +129,11 @@ for beg_year,end_year in zip([2006,2007,2008,2009,2010,2011,2012,2013,2014],
             #         for hx_hiv in [0,1]:
                         # for hx_aud in [0,1]:
             for hx_tobacco in [0,1]:
+                if hx_tobacco==1 and sum(pop.tobacco)==0:
+                    continue
                 for hx_sud_covar in [0,1]:
+                    if hx_sud_covar==1 and sum(pop.sud)==0:
+                        continue
                 # for hx_depression in [0,1]:
                 #     for hx_anxiety in [0,1]:
                 #         for control_opioid_rx_count in [0,1]:
