@@ -57,17 +57,15 @@ tobacco_icd10 = dx[dx.CODE.str.startswith(('F17'))]
 tobacco_icd = pd.concat([tobacco_icd9, tobacco_icd10]).reset_index(drop=True)
 tobacco_icd.to_parquet('../tidy_data/tobacco_diagnoses.parquet')
 
-#HIV diagnoses
-hiv_icd9 = dx[dx.CODE.str.startswith(('42', '79.53', 'V08'))]
-hiv_icd10 = dx[dx.CODE.str.startswith(('B20', 'B97.35', 'Z21'))]
+#HIV diagnoses - ordered HIV, HIV-2, asymptomatic HIV
+hiv_icd9 = dx[dx.CODE.str.startswith(('42', 'V08'))]
+hiv_icd10 = dx[dx.CODE.str.startswith(('B20', 'Z21'))]
 hiv_icd = pd.concat([hiv_icd9, hiv_icd10]).reset_index(drop=True)
 hiv_icd.to_parquet('../tidy_data/hiv_diagnoses.parquet')
 
 #Sickle-cell diagnoses
-sickle_icd9 = dx[dx.CODE.str.startswith(('282.41', '282.42', '282.5', '282.6', '282.60', '282.62', '282.63', '282.64',
-                                         '282.68', '282.69'))]
-sickle_icd10 = dx[dx.CODE.str.startswith(('D57', 'D57.0', 'D57.00', 'D57.01', 'D57.02', 'D57.03', 'D57.09', 'D57.1', 'D57.2', 
-                                          'D57.20', 'D57.21', 'D57.211', 'D57.212', 'D57.213', 'D57.218', 'D57.219', 'D57.3'))]
+sickle_icd9 = dx[dx.CODE.str.startswith(('282.41', '282.42', '282.5', '282.6'))]
+sickle_icd10 = dx[dx.CODE.str.startswith(('D57'))]
 sickle_icd = pd.concat([sickle_icd9, sickle_icd10]).reset_index(drop=True)
 sickle_icd.to_parquet('../tidy_data/sickle_diagnoses.parquet')
 

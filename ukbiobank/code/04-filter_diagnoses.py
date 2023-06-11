@@ -45,12 +45,12 @@ tobacco_codes = {
 }
 
 hiv_codes = {
-    'icd9': ['042', '0794', 'V08'],
-    'icd10': ['B20', 'B97', 'Z21']
+    'icd9': ['042', '0795', 'V08'],
+    'icd10': ['B20', 'Z21'] # codes weren't granular enough to have B9735
 }
 
 sickle_codes = {
-    'icd9': ['2824', '2825', '2826'],
+    'icd9': ['2824', '2825', '2826'], # Had to do it like this because codes weren't granular similarly to MSHS
     'icd10': ['D57']
 }
 
